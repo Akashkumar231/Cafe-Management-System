@@ -1,5 +1,8 @@
 package com.akashkumar.cafe.serviceImpl;
 
+import com.akashkumar.cafe.JWT.CustomerUserDetailsService;
+import com.akashkumar.cafe.JWT.JwtFilter;
+import com.akashkumar.cafe.JWT.JwtUtil;
 import com.akashkumar.cafe.POJO.User;
 import com.akashkumar.cafe.constants.CafeConstants;
 import com.akashkumar.cafe.dao.UserDao;
@@ -9,6 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -20,6 +26,15 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     UserDao userDao;
+
+    @Autowired
+    CustomerUserDetailsService customerUserDetailsService;
+
+    @Autowired
+    AuthenticationManager authenticationManager;
+
+    @Autowired
+    JwtUtil jwtUtil;
 
     @Override
     public ResponseEntity<String> singUp(Map<String, String> requestMap) {
@@ -53,6 +68,7 @@ return  CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG,HttpStatu
 
     }
 
+
     public boolean validateSignUpMap(Map<String, String> requestMap){
         if (requestMap.containsKey("name") && requestMap.containsKey("contactNumber") && requestMap.containsKey("email") && requestMap.containsKey("password")){
             return true;
@@ -70,4 +86,30 @@ return  CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG,HttpStatu
         user.setRole("user");
         return user;
     }
+
+    @Override
+    public ResponseEntity<String> login(Map<String, String> requestMap) {
+        log.info("Inside login {} " ,requestMap);
+        try{
+
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(requestMap.get("email"),requestMap.get("password"))
+            );
+            if (authentication.isAuthenticated()){
+                if (customerUserDetailsService.getUserDetails().getStatus().equalsIgnoreCase("true")){
+                    return new ResponseEntity<String>("{\"token\":\""+jwtUtil.generateToken(customerUserDetailsService.getUserDetails().getEmail(),customerUserDetailsService.getUserDetails().getRole())+"\"}",HttpStatus.OK);
+                }else {
+                    return new ResponseEntity<String>("{\"message\":\""+"Wait for admin approval."+"\"}",HttpStatus.BAD_REQUEST);
+                }
+            }
+
+        }catch (Exception exception){
+            log.error("{}",exception);
+        }
+
+
+ return new ResponseEntity<String>("{\"message\":\""+"Bad Credentials."+"\"}",HttpStatus.BAD_REQUEST);
+
+    }
+
 }
