@@ -8,6 +8,7 @@ import com.akashkumar.cafe.constants.CafeConstants;
 import com.akashkumar.cafe.dao.UserDao;
 import com.akashkumar.cafe.service.UserService;
 import com.akashkumar.cafe.utils.CafeUtils;
+import com.akashkumar.cafe.utils.EmailUtils;
 import com.akashkumar.cafe.wrapper.UserWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     JwtFilter jwtFilter;
+
+    @Autowired
+    EmailUtils emailUtils;
 
     @Override
     public ResponseEntity<String> singUp(Map<String, String> requestMap) {
@@ -148,6 +152,7 @@ return  CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG,HttpStatu
                 Optional<User> optional = userDao.findById(Integer.parseInt(requestMap.get("id")));
                 if (!optional.isEmpty()){
                       userDao.updateStatus(requestMap.get("status"),Integer.parseInt(requestMap.get("id")));
+                     sendMailToAllAdmin(requestMap.get("status"),optional.get().getEmail(),userDao.getAllAdmin());
                       return CafeUtils.getResponseEntity("User Status Updated Successfully.",HttpStatus.OK);
                 }else{
                     return new ResponseEntity<>("User id doesn't exist." , HttpStatus.OK);
@@ -164,6 +169,18 @@ return  CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG,HttpStatu
 
 
         return CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG,HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private void sendMailToAllAdmin(String status, String user, List<String> allAdmin) {
+      allAdmin.remove(jwtFilter.getCurrentUser());
+      if (status!=null && status.equalsIgnoreCase("true")){
+
+          emailUtils.sendSimpleMessage(jwtFilter.getCurrentUser(),"Account Approved","USER:- "+user + "\n is approved by \nADMIN:-"+jwtFilter.getCurrentUser(),allAdmin);
+
+      }else{
+          emailUtils.sendSimpleMessage(jwtFilter.getCurrentUser(),"Account Disabled","USER:- "+user + "\n is disabled by \nADMIN:-"+jwtFilter.getCurrentUser(),allAdmin);
+
+      }
     }
 
 }
